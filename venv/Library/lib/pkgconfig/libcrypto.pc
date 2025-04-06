@@ -1,0 +1,11 @@
+prefix=E:/1. Daily Activity/1_Artifical_Intelligence/3_Machine_Learning/2_Machine_Learning_Projects/1_ML_Used_Car_Dataset/venv/Library 
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: OpenSSL-libcrypto
+Description: OpenSSL cryptography library
+Libs: -L"${libdir}" -llibcrypto
+Libs.private: -lcrypt32 -lws2_32
+Cflags: -I"${includedir}"
+Version: 3.0.16 

@@ -1,0 +1,13 @@
+prefix=E:/1. Daily Activity/1_Artifical_Intelligence/3_Machine_Learning/2_Machine_Learning_Projects/1_ML_Used_Car_Dataset/venv/Library
+exec_prefix=E:/1. Daily Activity/1_Artifical_Intelligence/3_Machine_Learning/2_Machine_Learning_Projects/1_ML_Used_Car_Dataset/venv/Library
+libdir=E:/1. Daily Activity/1_Artifical_Intelligence/3_Machine_Learning/2_Machine_Learning_Projects/1_ML_Used_Car_Dataset/venv/Library/lib
+sharedlibdir=E:/1. Daily Activity/1_Artifical_Intelligence/3_Machine_Learning/2_Machine_Learning_Projects/1_ML_Used_Car_Dataset/venv/Library/lib
+includedir=E:/1. Daily Activity/1_Artifical_Intelligence/3_Machine_Learning/2_Machine_Learning_Projects/1_ML_Used_Car_Dataset/venv/Library/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.2.13
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}
