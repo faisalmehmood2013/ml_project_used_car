@@ -174,7 +174,7 @@ class Lock(SemLock):
                 name = process.current_process().name
                 if threading.current_thread().name != 'MainThread':
                     name += '|' + threading.current_thread().name
-            elif not self._semlock._is_zero():
+            elif self._semlock._get_value() == 1:
                 name = 'None'
             elif self._semlock._count() > 0:
                 name = 'SomeOtherThread'
@@ -200,7 +200,7 @@ class RLock(SemLock):
                 if threading.current_thread().name != 'MainThread':
                     name += '|' + threading.current_thread().name
                 count = self._semlock._count()
-            elif not self._semlock._is_zero():
+            elif self._semlock._get_value() == 1:
                 name, count = 'None', 0
             elif self._semlock._count() > 0:
                 name, count = 'SomeOtherThread', 'nonzero'
@@ -360,7 +360,7 @@ class Event(object):
                 return True
             return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         set_status = 'set' if self.is_set() else 'unset'
         return f"<{type(self).__qualname__} at {id(self):#x} {set_status}>"
 #

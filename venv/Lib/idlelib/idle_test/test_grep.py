@@ -8,7 +8,6 @@ Currently only test grep_it, coverage 51%.
 from idlelib import grep
 import unittest
 from test.support import captured_stdout
-from test.support.testcase import ExtraAssertions
 from idlelib.idle_test.mock_tk import Var
 import os
 import re
@@ -116,7 +115,7 @@ class FindfilesTest(unittest.TestCase):
         self.assertIn(self.realpath, filelist)
 
 
-class Grep_itTest(unittest.TestCase, ExtraAssertions):
+class Grep_itTest(unittest.TestCase):
     # Test captured reports with 0 and some hits.
     # Should test file names, but Windows reports have mixed / and \ separators
     # from incomplete replacement, so 'later'.
@@ -144,7 +143,7 @@ class Grep_itTest(unittest.TestCase, ExtraAssertions):
         self.assertIn(pat, lines[0])
         self.assertIn('py: 1:', lines[1])  # line number 1
         self.assertIn('2', lines[3])  # hits found 2
-        self.assertStartsWith(lines[4], '(Hint:')
+        self.assertTrue(lines[4].startswith('(Hint:'))
 
 
 class Default_commandTest(unittest.TestCase):

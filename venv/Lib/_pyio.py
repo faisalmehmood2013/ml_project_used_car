@@ -33,8 +33,11 @@ DEFAULT_BUFFER_SIZE = 8 * 1024  # bytes
 # Rebind for compatibility
 BlockingIOError = BlockingIOError
 
+# Does io.IOBase finalizer log the exception if the close() method fails?
+# The exception is ignored silently by default in release build.
+_IOBASE_EMITS_UNRAISABLE = (hasattr(sys, "gettotalrefcount") or sys.flags.dev_mode)
 # Does open() check its 'errors' argument?
-_CHECK_ERRORS = (hasattr(sys, "gettotalrefcount") or sys.flags.dev_mode)
+_CHECK_ERRORS = _IOBASE_EMITS_UNRAISABLE
 
 
 def text_encoding(encoding, stacklevel=2):
@@ -413,9 +416,18 @@ class IOBase(metaclass=abc.ABCMeta):
         if closed:
             return
 
-        # If close() fails, the caller logs the exception with
-        # sys.unraisablehook. close() must be called at the end at __del__().
-        self.close()
+        if _IOBASE_EMITS_UNRAISABLE:
+            self.close()
+        else:
+            # The try/except block is in case this is called at program
+            # exit time, when it's possible that globals have already been
+            # deleted, and then the close() call might fail.  Since
+            # there's nothing we can do about such failures and they annoy
+            # the end users, we suppress the traceback.
+            try:
+                self.close()
+            except:
+                pass
 
     ### Inquiries ###
 
@@ -1197,8 +1209,7 @@ class BufferedReader(_BufferedIOMixin):
         return written
 
     def tell(self):
-        # GH-95782: Keep return value non-negative
-        return max(_BufferedIOMixin.tell(self) - len(self._read_buf) + self._read_pos, 0)
+        return _BufferedIOMixin.tell(self) - len(self._read_buf) + self._read_pos
 
     def seek(self, pos, whence=0):
         if whence not in valid_seek_flags:
@@ -1496,11 +1507,6 @@ class FileIO(RawIOBase):
         if isinstance(file, float):
             raise TypeError('integer argument expected, got float')
         if isinstance(file, int):
-            if isinstance(file, bool):
-                import warnings
-                warnings.warn("bool is used as a file descriptor",
-                              RuntimeWarning, stacklevel=2)
-                file = int(file)
             fd = file
             if fd < 0:
                 raise ValueError('negative file descriptor')
@@ -2204,9 +2210,8 @@ class TextIOWrapper(TextIOBase):
         self.buffer.write(b)
         if self._line_buffering and (haslf or "\r" in s):
             self.flush()
-        if self._snapshot is not None:
-            self._set_decoded_chars('')
-            self._snapshot = None
+        self._set_decoded_chars('')
+        self._snapshot = None
         if self._decoder:
             self._decoder.reset()
         return length
@@ -2520,9 +2525,8 @@ class TextIOWrapper(TextIOBase):
             # Read everything.
             result = (self._get_decoded_chars() +
                       decoder.decode(self.buffer.read(), final=True))
-            if self._snapshot is not None:
-                self._set_decoded_chars('')
-                self._snapshot = None
+            self._set_decoded_chars('')
+            self._snapshot = None
             return result
         else:
             # Keep reading chunks until we have size characters to return.

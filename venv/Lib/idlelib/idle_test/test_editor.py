@@ -95,7 +95,7 @@ class GetLineIndentTest(unittest.TestCase):
 def insert(text, string):
     text.delete('1.0', 'end')
     text.insert('end', string)
-    text.update_idletasks()  # Force update for colorizer to finish.
+    text.update()  # Force update for colorizer to finish.
 
 
 class IndentAndNewlineTest(unittest.TestCase):

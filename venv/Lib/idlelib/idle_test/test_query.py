@@ -12,7 +12,6 @@ HelpSource htests.  These are run by running query.py.
 from idlelib import query
 import unittest
 from test.support import requires
-from test.support.testcase import ExtraAssertions
 from tkinter import Tk, END
 
 import sys
@@ -106,7 +105,7 @@ class SectionNameTest(unittest.TestCase):
         self.assertEqual(dialog.entry_error['text'], '')
 
 
-class ModuleNameTest(unittest.TestCase, ExtraAssertions):
+class ModuleNameTest(unittest.TestCase):
     "Test ModuleName subclass of Query."
 
     class Dummy_ModuleName:
@@ -135,10 +134,10 @@ class ModuleNameTest(unittest.TestCase, ExtraAssertions):
 
     def test_good_module_name(self):
         dialog = self.Dummy_ModuleName('idlelib')
-        self.assertEndsWith(dialog.entry_ok(), '__init__.py')
+        self.assertTrue(dialog.entry_ok().endswith('__init__.py'))
         self.assertEqual(dialog.entry_error['text'], '')
         dialog = self.Dummy_ModuleName('idlelib.idle')
-        self.assertEndsWith(dialog.entry_ok(), 'idle.py')
+        self.assertTrue(dialog.entry_ok().endswith('idle.py'))
         self.assertEqual(dialog.entry_error['text'], '')
 
 
@@ -377,7 +376,7 @@ class SectionnameGuiTest(unittest.TestCase):
         root.destroy()
 
 
-class ModulenameGuiTest(unittest.TestCase, ExtraAssertions):
+class ModulenameGuiTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -390,7 +389,7 @@ class ModulenameGuiTest(unittest.TestCase, ExtraAssertions):
         self.assertEqual(dialog.text0, 'idlelib')
         self.assertEqual(dialog.entry.get(), 'idlelib')
         dialog.button_ok.invoke()
-        self.assertEndsWith(dialog.result, '__init__.py')
+        self.assertTrue(dialog.result.endswith('__init__.py'))
         root.destroy()
 
 

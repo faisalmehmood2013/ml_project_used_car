@@ -1,5 +1,3 @@
-# Rename to stackbrowser or possibly consolidate with browser.
-
 import linecache
 import os
 
@@ -101,19 +99,19 @@ class VariablesTreeItem(ObjectTreeItem):
 
     def GetSubList(self):
         sublist = []
-        for key in self.object.keys():  # self.object not necessarily dict.
+        for key in self.object.keys():
             try:
                 value = self.object[key]
             except KeyError:
                 continue
-            def setfunction(value, key=key, object_=self.object):
-                object_[key] = value
+            def setfunction(value, key=key, object=self.object):
+                object[key] = value
             item = make_objecttreeitem(key + " =", value, setfunction)
             sublist.append(item)
         return sublist
 
 
-def _stackbrowser(parent):  # htest #
+def _stack_viewer(parent):  # htest #
     from idlelib.pyshell import PyShellFileList
     top = tk.Toplevel(parent)
     top.title("Test StackViewer")
@@ -131,4 +129,4 @@ if __name__ == '__main__':
     main('idlelib.idle_test.test_stackviewer', verbosity=2, exit=False)
 
     from idlelib.idle_test.htest import run
-    run(_stackbrowser)
+    run(_stack_viewer)

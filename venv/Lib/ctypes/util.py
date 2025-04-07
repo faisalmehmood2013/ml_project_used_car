@@ -67,7 +67,7 @@ if os.name == "nt":
                 return fname
         return None
 
-elif os.name == "posix" and sys.platform in {"darwin", "ios", "tvos", "watchos"}:
+elif os.name == "posix" and sys.platform == "darwin":
     from ctypes.macholib.dyld import dyld_find as _dyld_find
     def find_library(name):
         possible = ['@executable_path/../lib/lib%s.dylib' % name,
@@ -90,15 +90,6 @@ elif sys.platform.startswith("aix"):
 
     from ctypes._aix import find_library
 
-elif sys.platform == "android":
-    def find_library(name):
-        directory = "/system/lib"
-        if "64" in os.uname().machine:
-            directory += "64"
-
-        fname = f"{directory}/lib{name}.so"
-        return fname if os.path.isfile(fname) else None
-
 elif os.name == "posix":
     # Andreas Degert's find functions, using gcc, /sbin/ldconfig, objdump
     import re, tempfile
@@ -106,11 +97,8 @@ elif os.name == "posix":
     def _is_elf(filename):
         "Return True if the given file is an ELF file"
         elf_header = b'\x7fELF'
-        try:
-            with open(filename, 'br') as thefile:
-                return thefile.read(4) == elf_header
-        except FileNotFoundError:
-            return False
+        with open(filename, 'br') as thefile:
+            return thefile.read(4) == elf_header
 
     def _findLib_gcc(name):
         # Run GCC's linker with the -t (aka --trace) option and examine the

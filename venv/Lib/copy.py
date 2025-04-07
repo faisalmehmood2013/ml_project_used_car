@@ -4,9 +4,8 @@ Interface summary:
 
         import copy
 
-        x = copy.copy(y)                # make a shallow copy of y
-        x = copy.deepcopy(y)            # make a deep copy of y
-        x = copy.replace(y, a=1, b=2)   # new object with fields replaced, as defined by `__replace__`
+        x = copy.copy(y)        # make a shallow copy of y
+        x = copy.deepcopy(y)    # make a deep copy of y
 
 For module specific errors, copy.Error is raised.
 
@@ -57,7 +56,7 @@ class Error(Exception):
     pass
 error = Error   # backward compatibility
 
-__all__ = ["Error", "copy", "deepcopy", "replace"]
+__all__ = ["Error", "copy", "deepcopy"]
 
 def copy(x):
     """Shallow copy operation on arbitrary Python objects.
@@ -122,13 +121,13 @@ def deepcopy(x, memo=None, _nil=[]):
     See the module's __doc__ string for more info.
     """
 
-    d = id(x)
     if memo is None:
         memo = {}
-    else:
-        y = memo.get(d, _nil)
-        if y is not _nil:
-            return y
+
+    d = id(x)
+    y = memo.get(d, _nil)
+    if y is not _nil:
+        return y
 
     cls = type(x)
 
@@ -291,16 +290,3 @@ def _reconstruct(x, memo, func, args,
     return y
 
 del types, weakref
-
-
-def replace(obj, /, **changes):
-    """Return a new object replacing specified fields with new values.
-
-    This is especially useful for immutable objects, like named tuples or
-    frozen dataclasses.
-    """
-    cls = obj.__class__
-    func = getattr(cls, '__replace__', None)
-    if func is None:
-        raise TypeError(f"replace() does not support {cls.__name__} objects")
-    return func(obj, **changes)

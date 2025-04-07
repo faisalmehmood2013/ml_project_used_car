@@ -6,9 +6,8 @@ from _symtable import (USE, DEF_GLOBAL, DEF_NONLOCAL, DEF_LOCAL, DEF_PARAM,
      LOCAL, GLOBAL_IMPLICIT, GLOBAL_EXPLICIT, CELL)
 
 import weakref
-from enum import StrEnum
 
-__all__ = ["symtable", "SymbolTableType", "SymbolTable", "Class", "Function", "Symbol"]
+__all__ = ["symtable", "SymbolTable", "Class", "Function", "Symbol"]
 
 def symtable(code, filename, compile_type):
     """ Return the toplevel *SymbolTable* for the source code.
@@ -40,16 +39,6 @@ class SymbolTableFactory:
 _newSymbolTable = SymbolTableFactory()
 
 
-class SymbolTableType(StrEnum):
-    MODULE = "module"
-    FUNCTION = "function"
-    CLASS = "class"
-    ANNOTATION = "annotation"
-    TYPE_ALIAS = "type alias"
-    TYPE_PARAMETERS = "type parameters"
-    TYPE_VARIABLE = "type variable"
-
-
 class SymbolTable:
 
     def __init__(self, raw_table, filename):
@@ -73,23 +62,23 @@ class SymbolTable:
     def get_type(self):
         """Return the type of the symbol table.
 
-        The value returned is one of the values in
-        the ``SymbolTableType`` enumeration.
+        The values returned are 'class', 'module', 'function',
+        'annotation', 'TypeVar bound', 'type alias', and 'type parameter'.
         """
         if self._table.type == _symtable.TYPE_MODULE:
-            return SymbolTableType.MODULE
+            return "module"
         if self._table.type == _symtable.TYPE_FUNCTION:
-            return SymbolTableType.FUNCTION
+            return "function"
         if self._table.type == _symtable.TYPE_CLASS:
-            return SymbolTableType.CLASS
+            return "class"
         if self._table.type == _symtable.TYPE_ANNOTATION:
-            return SymbolTableType.ANNOTATION
+            return "annotation"
+        if self._table.type == _symtable.TYPE_TYPE_VAR_BOUND:
+            return "TypeVar bound"
         if self._table.type == _symtable.TYPE_TYPE_ALIAS:
-            return SymbolTableType.TYPE_ALIAS
-        if self._table.type == _symtable.TYPE_TYPE_PARAMETERS:
-            return SymbolTableType.TYPE_PARAMETERS
-        if self._table.type == _symtable.TYPE_TYPE_VARIABLE:
-            return SymbolTableType.TYPE_VARIABLE
+            return "type alias"
+        if self._table.type == _symtable.TYPE_TYPE_PARAM:
+            return "type parameter"
         assert False, f"unexpected type: {self._table.type}"
 
     def get_id(self):
@@ -228,37 +217,8 @@ class Class(SymbolTable):
         """
         if self.__methods is None:
             d = {}
-
-            def is_local_symbol(ident):
-                flags = self._table.symbols.get(ident, 0)
-                return ((flags >> SCOPE_OFF) & SCOPE_MASK) == LOCAL
-
             for st in self._table.children:
-                # pick the function-like symbols that are local identifiers
-                if is_local_symbol(st.name):
-                    match st.type:
-                        case _symtable.TYPE_FUNCTION:
-                            # generators are of type TYPE_FUNCTION with a ".0"
-                            # parameter as a first parameter (which makes them
-                            # distinguishable from a function named 'genexpr')
-                            if st.name == 'genexpr' and '.0' in st.varnames:
-                                continue
-                            d[st.name] = 1
-                        case _symtable.TYPE_TYPE_PARAMETERS:
-                            # Get the function-def block in the annotation
-                            # scope 'st' with the same identifier, if any.
-                            scope_name = st.name
-                            for c in st.children:
-                                if c.name == scope_name and c.type == _symtable.TYPE_FUNCTION:
-                                    # A generic generator of type TYPE_FUNCTION
-                                    # cannot be a direct child of 'st' (but it
-                                    # can be a descendant), e.g.:
-                                    #
-                                    # class A:
-                                    #   type genexpr[genexpr] = (x for x in [])
-                                    assert scope_name != 'genexpr' or '.0' not in c.varnames
-                                    d[scope_name] = 1
-                                    break
+                d[st.name] = 1
             self.__methods = tuple(d)
         return self.__methods
 
@@ -273,16 +233,7 @@ class Symbol:
         self.__module_scope = module_scope
 
     def __repr__(self):
-        flags_str = '|'.join(self._flags_str())
-        return f'<symbol {self.__name!r}: {self._scope_str()}, {flags_str}>'
-
-    def _scope_str(self):
-        return _scopes_value_to_name.get(self.__scope) or str(self.__scope)
-
-    def _flags_str(self):
-        for flagname, flagvalue in _flags:
-            if self.__flags & flagvalue == flagvalue:
-                yield flagname
+        return "<symbol {0!r}>".format(self.__name)
 
     def get_name(self):
         """Return a name of a symbol.
@@ -372,43 +323,11 @@ class Symbol:
         else:
             return self.__namespaces[0]
 
-
-_flags = [('USE', USE)]
-_flags.extend(kv for kv in globals().items() if kv[0].startswith('DEF_'))
-_scopes_names = ('FREE', 'LOCAL', 'GLOBAL_IMPLICIT', 'GLOBAL_EXPLICIT', 'CELL')
-_scopes_value_to_name = {globals()[n]: n for n in _scopes_names}
-
-
-def main(args):
-    import sys
-    def print_symbols(table, level=0):
-        indent = '    ' * level
-        nested = "nested " if table.is_nested() else ""
-        if table.get_type() == 'module':
-            what = f'from file {table._filename!r}'
-        else:
-            what = f'{table.get_name()!r}'
-        print(f'{indent}symbol table for {nested}{table.get_type()} {what}:')
-        for ident in table.get_identifiers():
-            symbol = table.lookup(ident)
-            flags = ', '.join(symbol._flags_str()).lower()
-            print(f'    {indent}{symbol._scope_str().lower()} symbol {symbol.get_name()!r}: {flags}')
-        print()
-
-        for table2 in table.get_children():
-            print_symbols(table2, level + 1)
-
-    for filename in args or ['-']:
-        if filename == '-':
-            src = sys.stdin.read()
-            filename = '<stdin>'
-        else:
-            with open(filename, 'rb') as f:
-                src = f.read()
-        mod = symtable(src, filename, 'exec')
-        print_symbols(mod)
-
-
 if __name__ == "__main__":
-    import sys
-    main(sys.argv[1:])
+    import os, sys
+    with open(sys.argv[0]) as f:
+        src = f.read()
+    mod = symtable(src, os.path.split(sys.argv[0])[1], "exec")
+    for ident in mod.get_identifiers():
+        info = mod.lookup(ident)
+        print(info, info.is_local(), info.is_namespace())

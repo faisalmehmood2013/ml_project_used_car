@@ -33,7 +33,6 @@ from tkinter.ttk import Frame, Menubutton, Scrollbar, Style
 from tkinter import font as tkfont
 
 from idlelib.config import idleConf
-from idlelib.colorizer import color_config
 
 ## About IDLE ##
 
@@ -103,7 +102,7 @@ class HelpParser(HTMLParser):
             if self.level > 0:
                 self.nested_dl = True
         elif tag == 'li':
-            s = '\n* '
+            s = '\n* ' if self.simplelist else '\n\n* '
         elif tag == 'dt':
             s = '\n\n' if not self.nested_dl else '\n'  # Avoid extra line.
             self.nested_dl = False
@@ -178,16 +177,14 @@ class HelpText(Text):
 
         normalfont = self.findfont(['TkDefaultFont', 'arial', 'helvetica'])
         fixedfont = self.findfont(['TkFixedFont', 'monaco', 'courier'])
-        color_config(self)
         self['font'] = (normalfont, 12)
         self.tag_configure('em', font=(normalfont, 12, 'italic'))
         self.tag_configure('h1', font=(normalfont, 20, 'bold'))
         self.tag_configure('h2', font=(normalfont, 18, 'bold'))
         self.tag_configure('h3', font=(normalfont, 15, 'bold'))
-        self.tag_configure('pre', font=(fixedfont, 12))
-        preback = self['selectbackground']
+        self.tag_configure('pre', font=(fixedfont, 12), background='#f6f6ff')
         self.tag_configure('preblock', font=(fixedfont, 10), lmargin1=25,
-                           background=preback)
+                borderwidth=1, relief='solid', background='#eeffcc')
         self.tag_configure('l1', lmargin1=25, lmargin2=25)
         self.tag_configure('l2', lmargin1=50, lmargin2=50)
         self.tag_configure('l3', lmargin1=75, lmargin2=75)
@@ -244,13 +241,12 @@ class HelpWindow(Toplevel):
         Toplevel.__init__(self, parent)
         self.wm_title(title)
         self.protocol("WM_DELETE_WINDOW", self.destroy)
-        self.frame = HelpFrame(self, filename)
-        self.frame.grid(column=0, row=0, sticky='nsew')
+        HelpFrame(self, filename).grid(column=0, row=0, sticky='nsew')
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
 
-def copy_strip():  # pragma: no cover
+def copy_strip():
     """Copy idle.html to idlelib/help.html, stripping trailing whitespace.
 
     Files with trailing whitespace cannot be pushed to the git cpython
@@ -282,15 +278,13 @@ def copy_strip():  # pragma: no cover
             out.write(line.rstrip() + b'\n')
     print(f'{src} copied to {dst}')
 
-
 def show_idlehelp(parent):
     "Create HelpWindow; called from Idle Help event handler."
     filename = join(abspath(dirname(__file__)), 'help.html')
-    if not isfile(filename):  # pragma: no cover
+    if not isfile(filename):
         # Try copy_strip, present message.
         return
-    return HelpWindow(parent, filename, 'IDLE Doc (%s)' % python_version())
-
+    HelpWindow(parent, filename, 'IDLE Help (%s)' % python_version())
 
 if __name__ == '__main__':
     from unittest import main

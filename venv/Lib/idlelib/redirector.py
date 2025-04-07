@@ -106,7 +106,6 @@ class WidgetRedirector:
         to *args to accomplish that.  For an example, see colorizer.py.
 
         '''
-        operation = str(operation)  # can be a Tcl_Obj
         m = self._operations.get(operation)
         try:
             if m:
@@ -164,7 +163,6 @@ def _widget_redirector(parent):  # htest #
         print("insert", args)
         original_insert(*args)
     original_insert = redir.register("insert", my_insert)
-
 
 if __name__ == "__main__":
     from unittest import main

@@ -10,8 +10,6 @@ import time
 import unittest
 import warnings
 
-from test import support
-
 
 # Filename used for testing
 TESTFN_ASCII = '@test'
@@ -22,8 +20,8 @@ TESTFN_ASCII = "{}_{}_tmp".format(TESTFN_ASCII, os.getpid())
 
 # TESTFN_UNICODE is a non-ascii filename
 TESTFN_UNICODE = TESTFN_ASCII + "-\xe0\xf2\u0258\u0141\u011f"
-if support.is_apple:
-    # On Apple's VFS API file names are, by definition, canonically
+if sys.platform == 'darwin':
+    # In Mac OS X's VFS API file names are, by definition, canonically
     # decomposed Unicode, encoded using UTF-8. See QA1173:
     # http://developer.apple.com/mac/library/qa/qa2001/qa1173.html
     import unicodedata
@@ -48,8 +46,8 @@ if os.name == 'nt':
                   'encoding (%s). Unicode filename tests may not be effective'
                   % (TESTFN_UNENCODABLE, sys.getfilesystemencoding()))
             TESTFN_UNENCODABLE = None
-# Apple and Emscripten deny unencodable filenames (invalid utf-8)
-elif not support.is_apple and sys.platform not in {"emscripten", "wasi"}:
+# macOS and Emscripten deny unencodable filenames (invalid utf-8)
+elif sys.platform not in {'darwin', 'emscripten', 'wasi'}:
     try:
         # ascii and utf-8 cannot encode the byte 0xff
         b'\xff'.decode(sys.getfilesystemencoding())
@@ -198,23 +196,6 @@ def skip_unless_symlink(test):
     return test if ok else unittest.skip(msg)(test)
 
 
-_can_hardlink = None
-
-def can_hardlink():
-    global _can_hardlink
-    if _can_hardlink is None:
-        # Android blocks hard links using SELinux
-        # (https://stackoverflow.com/q/32365690).
-        _can_hardlink = hasattr(os, "link") and not support.is_android
-    return _can_hardlink
-
-
-def skip_unless_hardlink(test):
-    ok = can_hardlink()
-    msg = "requires hardlink support"
-    return test if ok else unittest.skip(msg)(test)
-
-
 _can_xattr = None
 
 
@@ -264,15 +245,15 @@ def can_chmod():
     global _can_chmod
     if _can_chmod is not None:
         return _can_chmod
-    if not hasattr(os, "chmod"):
+    if not hasattr(os, "chown"):
         _can_chmod = False
         return _can_chmod
     try:
         with open(TESTFN, "wb") as f:
             try:
-                os.chmod(TESTFN, 0o555)
-                mode1 = os.stat(TESTFN).st_mode
                 os.chmod(TESTFN, 0o777)
+                mode1 = os.stat(TESTFN).st_mode
+                os.chmod(TESTFN, 0o666)
                 mode2 = os.stat(TESTFN).st_mode
             except OSError as e:
                 can = False
@@ -319,10 +300,6 @@ def can_dac_override():
             else:
                 _can_dac_override = True
     finally:
-        try:
-            os.chmod(TESTFN, 0o700)
-        except OSError:
-            pass
         unlink(TESTFN)
 
     return _can_dac_override
@@ -612,18 +589,11 @@ class FakePath:
 def fd_count():
     """Count the number of open file descriptors.
     """
-    if sys.platform.startswith(('linux', 'android', 'freebsd', 'emscripten')):
-        fd_path = "/proc/self/fd"
-    elif sys.platform == "darwin":
-        fd_path = "/dev/fd"
-    else:
-        fd_path = None
-
-    if fd_path is not None:
+    if sys.platform.startswith(('linux', 'freebsd', 'emscripten')):
         try:
-            names = os.listdir(fd_path)
+            names = os.listdir("/proc/self/fd")
             # Subtract one because listdir() internally opens a file
-            # descriptor to list the content of the directory.
+            # descriptor to list the content of the /proc/self/fd/ directory.
             return len(names) - 1
         except FileNotFoundError:
             pass
@@ -632,8 +602,7 @@ def fd_count():
     if hasattr(os, 'sysconf'):
         try:
             MAXFD = os.sysconf("SC_OPEN_MAX")
-        except (OSError, ValueError):
-            # gh-118201: ValueError is raised intermittently on iOS
+        except OSError:
             pass
 
     old_modes = None
@@ -751,16 +720,13 @@ class EnvironmentVarGuard(collections.abc.MutableMapping):
 
 
 try:
-    if support.MS_WINDOWS:
-        import ctypes
-        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    import ctypes
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
 
-        ERROR_FILE_NOT_FOUND = 2
-        DDD_REMOVE_DEFINITION = 2
-        DDD_EXACT_MATCH_ON_REMOVE = 4
-        DDD_NO_BROADCAST_SYSTEM = 8
-    else:
-        raise AttributeError
+    ERROR_FILE_NOT_FOUND = 2
+    DDD_REMOVE_DEFINITION = 2
+    DDD_EXACT_MATCH_ON_REMOVE = 4
+    DDD_NO_BROADCAST_SYSTEM = 8
 except (ImportError, AttributeError):
     def subst_drive(path):
         raise unittest.SkipTest('ctypes or kernel32 is not available')

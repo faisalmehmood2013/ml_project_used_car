@@ -43,8 +43,10 @@ getstatusoutput(...): Runs a command in the shell, waits for it to complete,
 import builtins
 import errno
 import io
+import locale
 import os
 import time
+import signal
 import sys
 import threading
 import warnings
@@ -72,8 +74,8 @@ except ModuleNotFoundError:
 else:
     _mswindows = True
 
-# some platforms do not support subprocesses
-_can_fork_exec = sys.platform not in {"emscripten", "wasi", "ios", "tvos", "watchos"}
+# wasm32-emscripten and wasm32-wasi do not support processes
+_can_fork_exec = sys.platform not in {"emscripten", "wasi"}
 
 if _mswindows:
     import _winapi
@@ -81,7 +83,6 @@ if _mswindows:
                          STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
                          STD_ERROR_HANDLE, SW_HIDE,
                          STARTF_USESTDHANDLES, STARTF_USESHOWWINDOW,
-                         STARTF_FORCEONFEEDBACK, STARTF_FORCEOFFFEEDBACK,
                          ABOVE_NORMAL_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS,
                          HIGH_PRIORITY_CLASS, IDLE_PRIORITY_CLASS,
                          NORMAL_PRIORITY_CLASS, REALTIME_PRIORITY_CLASS,
@@ -92,7 +93,6 @@ if _mswindows:
                     "STD_INPUT_HANDLE", "STD_OUTPUT_HANDLE",
                     "STD_ERROR_HANDLE", "SW_HIDE",
                     "STARTF_USESTDHANDLES", "STARTF_USESHOWWINDOW",
-                    "STARTF_FORCEONFEEDBACK", "STARTF_FORCEOFFFEEDBACK",
                     "STARTUPINFO",
                     "ABOVE_NORMAL_PRIORITY_CLASS", "BELOW_NORMAL_PRIORITY_CLASS",
                     "HIGH_PRIORITY_CLASS", "IDLE_PRIORITY_CLASS",
@@ -103,22 +103,18 @@ else:
     if _can_fork_exec:
         from _posixsubprocess import fork_exec as _fork_exec
         # used in methods that are called by __del__
-        class _del_safe:
-            waitpid = os.waitpid
-            waitstatus_to_exitcode = os.waitstatus_to_exitcode
-            WIFSTOPPED = os.WIFSTOPPED
-            WSTOPSIG = os.WSTOPSIG
-            WNOHANG = os.WNOHANG
-            ECHILD = errno.ECHILD
+        _waitpid = os.waitpid
+        _waitstatus_to_exitcode = os.waitstatus_to_exitcode
+        _WIFSTOPPED = os.WIFSTOPPED
+        _WSTOPSIG = os.WSTOPSIG
+        _WNOHANG = os.WNOHANG
     else:
-        class _del_safe:
-            waitpid = None
-            waitstatus_to_exitcode = None
-            WIFSTOPPED = None
-            WSTOPSIG = None
-            WNOHANG = None
-            ECHILD = errno.ECHILD
-
+        _fork_exec = None
+        _waitpid = None
+        _waitstatus_to_exitcode = None
+        _WIFSTOPPED = None
+        _WSTOPSIG = None
+        _WNOHANG = None
     import select
     import selectors
 
@@ -142,8 +138,6 @@ class CalledProcessError(SubprocessError):
 
     def __str__(self):
         if self.returncode and self.returncode < 0:
-            # Lazy import to improve module import time
-            import signal
             try:
                 return "Command '%s' died with %r." % (
                         self.cmd, signal.Signals(-self.returncode))
@@ -352,7 +346,7 @@ def _args_from_interpreter_flags():
     if dev_mode:
         args.extend(('-X', 'dev'))
     for opt in ('faulthandler', 'tracemalloc', 'importtime',
-                'frozen_modules', 'showrefcount', 'utf8', 'gil'):
+                'frozen_modules', 'showrefcount', 'utf8'):
         if opt in xoptions:
             value = xoptions[opt]
             if value is True:
@@ -381,14 +375,12 @@ def _text_encoding():
     if sys.flags.utf8_mode:
         return "utf-8"
     else:
-        # Lazy import to improve module import time
-        import locale
         return locale.getencoding()
 
 
 def call(*popenargs, timeout=None, **kwargs):
     """Run command with arguments.  Wait for command to complete or
-    for timeout seconds, then return the returncode attribute.
+    timeout, then return the returncode attribute.
 
     The arguments are the same as for the Popen constructor.  Example:
 
@@ -525,8 +517,8 @@ def run(*popenargs,
     in the returncode attribute, and output & stderr attributes if those streams
     were captured.
 
-    If timeout (seconds) is given and the process takes too long,
-     a TimeoutExpired exception will be raised.
+    If timeout is given, and the process takes too long, a TimeoutExpired
+    exception will be raised.
 
     There is an optional argument "input", allowing you to
     pass bytes or a string to the subprocess's stdin.  If you use this argument
@@ -752,7 +744,6 @@ def _use_posix_spawn():
 # guarantee the given libc/syscall API will be used.
 _USE_POSIX_SPAWN = _use_posix_spawn()
 _USE_VFORK = True
-_HAVE_POSIX_SPAWN_CLOSEFROM = hasattr(os, 'POSIX_SPAWN_CLOSEFROM')
 
 
 class Popen:
@@ -842,9 +833,6 @@ class Popen:
             bufsize = -1  # Restore default
         if not isinstance(bufsize, int):
             raise TypeError("bufsize must be an integer")
-
-        if stdout is STDOUT:
-            raise ValueError("STDOUT can only be used for stderr")
 
         if pipesize is None:
             pipesize = -1  # Restore default
@@ -1593,8 +1581,6 @@ class Popen:
             """Internal implementation of wait() on Windows."""
             if timeout is None:
                 timeout_millis = _winapi.INFINITE
-            elif timeout <= 0:
-                timeout_millis = 0
             else:
                 timeout_millis = int(timeout * 1000)
             if self.returncode is None:
@@ -1667,9 +1653,6 @@ class Popen:
             # Don't signal a process that we know has already died.
             if self.returncode is not None:
                 return
-
-            # Lazy import to improve module import time
-            import signal
             if sig == signal.SIGTERM:
                 self.terminate()
             elif sig == signal.CTRL_C_EVENT:
@@ -1764,16 +1747,16 @@ class Popen:
                     errread, errwrite)
 
 
-        def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+        def _posix_spawn(self, args, executable, env, restore_signals,
                          p2cread, p2cwrite,
                          c2pread, c2pwrite,
                          errread, errwrite):
             """Execute program using os.posix_spawn()."""
+            if env is None:
+                env = os.environ
+
             kwargs = {}
             if restore_signals:
-                # Lazy import to improve module import time
-                import signal
-
                 # See _Py_RestoreSignals() in Python/pylifecycle.c
                 sigset = []
                 for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
@@ -1793,10 +1776,6 @@ class Popen:
             ):
                 if fd != -1:
                     file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
-
-            if close_fds:
-                file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
-
             if file_actions:
                 kwargs['file_actions'] = file_actions
 
@@ -1844,7 +1823,7 @@ class Popen:
             if (_USE_POSIX_SPAWN
                     and os.path.dirname(executable)
                     and preexec_fn is None
-                    and (not close_fds or _HAVE_POSIX_SPAWN_CLOSEFROM)
+                    and not close_fds
                     and not pass_fds
                     and cwd is None
                     and (p2cread == -1 or p2cread > 2)
@@ -1856,7 +1835,7 @@ class Popen:
                     and gids is None
                     and uid is None
                     and umask < 0):
-                self._posix_spawn(args, executable, env, restore_signals, close_fds,
+                self._posix_spawn(args, executable, env, restore_signals,
                                   p2cread, p2cwrite,
                                   c2pread, c2pwrite,
                                   errread, errwrite)
@@ -1959,34 +1938,33 @@ class Popen:
                         SubprocessError)
                 if issubclass(child_exception_type, OSError) and hex_errno:
                     errno_num = int(hex_errno, 16)
-                    if err_msg == "noexec:chdir":
+                    child_exec_never_called = (err_msg == "noexec")
+                    if child_exec_never_called:
                         err_msg = ""
                         # The error must be from chdir(cwd).
                         err_filename = cwd
-                    elif err_msg == "noexec":
-                        err_msg = ""
-                        err_filename = None
                     else:
                         err_filename = orig_executable
                     if errno_num != 0:
                         err_msg = os.strerror(errno_num)
-                    if err_filename is not None:
-                        raise child_exception_type(errno_num, err_msg, err_filename)
-                    else:
-                        raise child_exception_type(errno_num, err_msg)
+                    raise child_exception_type(errno_num, err_msg, err_filename)
                 raise child_exception_type(err_msg)
 
 
-        def _handle_exitstatus(self, sts, _del_safe=_del_safe):
+        def _handle_exitstatus(self, sts,
+                               _waitstatus_to_exitcode=_waitstatus_to_exitcode,
+                               _WIFSTOPPED=_WIFSTOPPED,
+                               _WSTOPSIG=_WSTOPSIG):
             """All callers to this function MUST hold self._waitpid_lock."""
             # This method is called (indirectly) by __del__, so it cannot
             # refer to anything outside of its local scope.
-            if _del_safe.WIFSTOPPED(sts):
-                self.returncode = -_del_safe.WSTOPSIG(sts)
+            if _WIFSTOPPED(sts):
+                self.returncode = -_WSTOPSIG(sts)
             else:
-                self.returncode = _del_safe.waitstatus_to_exitcode(sts)
+                self.returncode = _waitstatus_to_exitcode(sts)
 
-        def _internal_poll(self, _deadstate=None, _del_safe=_del_safe):
+        def _internal_poll(self, _deadstate=None, _waitpid=_waitpid,
+                _WNOHANG=_WNOHANG, _ECHILD=errno.ECHILD):
             """Check if child process has terminated.  Returns returncode
             attribute.
 
@@ -2002,13 +1980,13 @@ class Popen:
                 try:
                     if self.returncode is not None:
                         return self.returncode  # Another thread waited.
-                    pid, sts = _del_safe.waitpid(self.pid, _del_safe.WNOHANG)
+                    pid, sts = _waitpid(self.pid, _WNOHANG)
                     if pid == self.pid:
                         self._handle_exitstatus(sts)
                 except OSError as e:
                     if _deadstate is not None:
                         self.returncode = _deadstate
-                    elif e.errno == _del_safe.ECHILD:
+                    elif e.errno == _ECHILD:
                         # This happens if SIGCLD is set to be ignored or
                         # waiting for child processes has otherwise been
                         # disabled for our process.  This child is dead, we
@@ -2223,13 +2201,9 @@ class Popen:
         def terminate(self):
             """Terminate the process with SIGTERM
             """
-            # Lazy import to improve module import time
-            import signal
             self.send_signal(signal.SIGTERM)
 
         def kill(self):
             """Kill the process with SIGKILL
             """
-            # Lazy import to improve module import time
-            import signal
             self.send_signal(signal.SIGKILL)

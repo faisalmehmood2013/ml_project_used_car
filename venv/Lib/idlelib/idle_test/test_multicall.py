@@ -3,11 +3,10 @@
 from idlelib import multicall
 import unittest
 from test.support import requires
-from test.support.testcase import ExtraAssertions
 from tkinter import Tk, Text
 
 
-class MultiCallTest(unittest.TestCase, ExtraAssertions):
+class MultiCallTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -28,7 +27,7 @@ class MultiCallTest(unittest.TestCase, ExtraAssertions):
     def test_creator(self):
         mc = self.mc
         self.assertIs(multicall._multicall_dict[Text], mc)
-        self.assertIsSubclass(mc, Text)
+        self.assertTrue(issubclass(mc, Text))
         mc2 = multicall.MultiCallCreator(Text)
         self.assertIs(mc, mc2)
 

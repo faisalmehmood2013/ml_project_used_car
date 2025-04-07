@@ -180,11 +180,7 @@ class ExecutionLoader(InspectLoader):
         else:
             return self.source_to_code(source, path)
 
-_register(
-    ExecutionLoader,
-    machinery.ExtensionFileLoader,
-    machinery.AppleFrameworkLoader,
-)
+_register(ExecutionLoader, machinery.ExtensionFileLoader)
 
 
 class FileLoader(_bootstrap_external.FileLoader, ResourceLoader, ExecutionLoader):

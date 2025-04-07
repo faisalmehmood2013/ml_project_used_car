@@ -92,21 +92,20 @@ from tkinter import *
 from idlelib.colorizer import ColorDelegator, color_config
 from idlelib.percolator import Percolator
 from idlelib.textview import view_text
-import turtle
 from turtledemo import __doc__ as about_turtledemo
 
-if sys.platform == 'win32':
-    from idlelib.util import fix_win_hidpi
-    fix_win_hidpi()
+import turtle
 
 demo_dir = os.path.dirname(os.path.abspath(__file__))
 darwin = sys.platform == 'darwin'
+
 STARTUP = 1
 READY = 2
 RUNNING = 3
 DONE = 4
 EVENTDRIVEN = 5
 
+menufont = ("Arial", 12, NORMAL)
 btnfont = ("Arial", 12, 'bold')
 txtfont = ['Lucida Console', 10, 'normal']
 
@@ -162,7 +161,7 @@ class DemoWindow(object):
                               label='Help', underline=0)
         root['menu'] = self.mBar
 
-        pane = PanedWindow(root, orient=HORIZONTAL, sashwidth=5,
+        pane = PanedWindow(orient=HORIZONTAL, sashwidth=5,
                            sashrelief=SOLID, bg='#ddd')
         pane.add(self.makeTextFrame(pane))
         pane.add(self.makeGraphFrame(pane))
@@ -217,7 +216,7 @@ class DemoWindow(object):
 
         self.vbar = vbar = Scrollbar(text_frame, name='vbar')
         vbar['command'] = text.yview
-        vbar.pack(side=RIGHT, fill=Y)
+        vbar.pack(side=LEFT, fill=Y)
         self.hbar = hbar = Scrollbar(text_frame, name='hbar', orient=HORIZONTAL)
         hbar['command'] = text.xview
         hbar.pack(side=BOTTOM, fill=X)
@@ -293,35 +292,37 @@ class DemoWindow(object):
         self.output_lbl.config(text=txt, fg=color)
 
     def makeLoadDemoMenu(self, master):
-        menu = Menu(master, tearoff=1)  # TJR: leave this one.
+        menu = Menu(master)
 
         for entry in getExampleEntries():
             def load(entry=entry):
                 self.loadfile(entry)
-            menu.add_command(label=entry, underline=0, command=load)
+            menu.add_command(label=entry, underline=0,
+                             font=menufont, command=load)
         return menu
 
     def makeFontMenu(self, master):
-        menu = Menu(master, tearoff=0)
-        menu.add_command(label="Decrease", command=self.decrease_size,
-                         accelerator=f"{'Command' if darwin else 'Ctrl'}+-")
-        menu.add_command(label="Increase", command=self.increase_size,
-                         accelerator=f"{'Command' if darwin else 'Ctrl'}+=")
+        menu = Menu(master)
+        menu.add_command(label="Decrease (C-'-')", command=self.decrease_size,
+                         font=menufont)
+        menu.add_command(label="Increase (C-'+')", command=self.increase_size,
+                         font=menufont)
         menu.add_separator()
 
         for size in font_sizes:
             def resize(size=size):
                 self.set_txtsize(size)
-            menu.add_command(label=str(size), underline=0, command=resize)
+            menu.add_command(label=str(size), underline=0,
+                             font=menufont, command=resize)
         return menu
 
     def makeHelpMenu(self, master):
-        menu = Menu(master, tearoff=0)
+        menu = Menu(master)
 
         for help_label, help_file in help_entries:
             def show(help_label=help_label, help_file=help_file):
                 view_text(self.root, help_label, help_file)
-            menu.add_command(label=help_label, command=show)
+            menu.add_command(label=help_label, font=menufont, command=show)
         return menu
 
     def refreshCanvas(self):

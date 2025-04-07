@@ -339,25 +339,24 @@ class CommandSequence(Command):
 def _undo_delegator(parent):  # htest #
     from tkinter import Toplevel, Text, Button
     from idlelib.percolator import Percolator
-    top = Toplevel(parent)
-    top.title("Test UndoDelegator")
+    undowin = Toplevel(parent)
+    undowin.title("Test UndoDelegator")
     x, y = map(int, parent.geometry().split('+')[1:])
-    top.geometry("+%d+%d" % (x, y + 175))
+    undowin.geometry("+%d+%d" % (x, y + 175))
 
-    text = Text(top, height=10)
+    text = Text(undowin, height=10)
     text.pack()
     text.focus_set()
     p = Percolator(text)
     d = UndoDelegator()
     p.insertfilter(d)
 
-    undo = Button(top, text="Undo", command=lambda:d.undo_event(None))
+    undo = Button(undowin, text="Undo", command=lambda:d.undo_event(None))
     undo.pack(side='left')
-    redo = Button(top, text="Redo", command=lambda:d.redo_event(None))
+    redo = Button(undowin, text="Redo", command=lambda:d.redo_event(None))
     redo.pack(side='left')
-    dump = Button(top, text="Dump", command=lambda:d.dump_event(None))
+    dump = Button(undowin, text="Dump", command=lambda:d.dump_event(None))
     dump.pack(side='left')
-
 
 if __name__ == "__main__":
     from unittest import main

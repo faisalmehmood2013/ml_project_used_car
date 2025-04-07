@@ -341,9 +341,6 @@ class TokenEater:
             if ttype == tokenize.NAME and tstring in ('class', 'def'):
                 self.__state = self.__suiteseen
                 return
-        if ttype == tokenize.NAME and tstring in ('class', 'def'):
-            self.__state = self.__ignorenext
-            return
         if ttype == tokenize.NAME and tstring in opts.keywords:
             self.__state = self.__keywordseen
             return
@@ -450,9 +447,6 @@ class TokenEater:
                 'lineno': self.__lineno
                 }, file=sys.stderr)
             self.__state = self.__waiting
-
-    def __ignorenext(self, ttype, tstring, lineno):
-        self.__state = self.__waiting
 
     def __addentry(self, msg, lineno=None, isdocstring=0):
         if lineno is None:

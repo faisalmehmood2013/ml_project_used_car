@@ -39,12 +39,14 @@ def cfmakeraw(mode):
     # Case B: MIN>0, TIME=0
     # A pending read shall block until MIN (here 1) bytes are received,
     # or a signal is received.
-    mode[CC] = list(mode[CC])
     mode[CC][VMIN] = 1
     mode[CC][VTIME] = 0
 
 def cfmakecbreak(mode):
     """Make termios mode cbreak."""
+    # Do not map CR to NL on input.
+    mode[IFLAG] &= ~(ICRNL)
+
     # Do not echo characters; disable canonical input.
     mode[LFLAG] &= ~(ECHO | ICANON)
 
@@ -52,7 +54,6 @@ def cfmakecbreak(mode):
     # Case B: MIN>0, TIME=0
     # A pending read shall block until MIN (here 1) bytes are received,
     # or a signal is received.
-    mode[CC] = list(mode[CC])
     mode[CC][VMIN] = 1
     mode[CC][VTIME] = 0
 

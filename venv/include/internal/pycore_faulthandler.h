@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 #ifdef HAVE_SIGACTION
-#  include <signal.h>             // sigaction
+#  include <signal.h>
 #endif
 
 

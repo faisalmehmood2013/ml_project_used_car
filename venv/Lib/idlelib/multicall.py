@@ -421,8 +421,6 @@ def _multi_call(parent):  # htest #
     top.geometry("+%d+%d" % (x, y + 175))
     text = MultiCallCreator(tkinter.Text)(top)
     text.pack()
-    text.focus_set()
-
     def bindseq(seq, n=[0]):
         def handler(event):
             print(seq)
@@ -441,7 +439,6 @@ def _multi_call(parent):  # htest #
     bindseq("<FocusOut>")
     bindseq("<Enter>")
     bindseq("<Leave>")
-
 
 if __name__ == "__main__":
     from unittest import main

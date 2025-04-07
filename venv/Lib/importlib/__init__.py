@@ -54,6 +54,8 @@ _unpack_uint32 = _bootstrap_external._unpack_uint32
 # Fully bootstrapped at this point, import whatever you like, circular
 # dependencies and startup overhead minimisation permitting :)
 
+import warnings
+
 
 # Public API #########################################################
 
@@ -103,7 +105,7 @@ def reload(module):
         try:
             name = module.__name__
         except AttributeError:
-            raise TypeError("reload() argument must be a module") from None
+            raise TypeError("reload() argument must be a module")
 
     if sys.modules.get(name) is not module:
         raise ImportError(f"module {name} not in sys.modules", name=name)

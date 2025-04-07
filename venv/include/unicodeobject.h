@@ -1,6 +1,8 @@
 #ifndef Py_UNICODEOBJECT_H
 #define Py_UNICODEOBJECT_H
 
+#include <stdarg.h>               // va_list
+
 /*
 
 Unicode implementation based on original code by Fredrik Lundh,
@@ -53,6 +55,8 @@ Copyright (c) Corporation for National Research Initiatives.
  * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  * -------------------------------------------------------------------- */
 
+#include <ctype.h>
+
 /* === Internal API ======================================================= */
 
 /* --- Internal Unicode Format -------------------------------------------- */
@@ -87,6 +91,10 @@ Copyright (c) Corporation for National Research Initiatives.
 # ifndef HAVE_WCHAR_H
 #  define HAVE_WCHAR_H
 # endif
+#endif
+
+#ifdef HAVE_WCHAR_H
+#  include <wchar.h>
 #endif
 
 /* Py_UCS4 and Py_UCS2 are typedefs for the respective
@@ -956,15 +964,6 @@ PyAPI_FUNC(int) PyUnicode_CompareWithASCIIString(
     PyObject *left,
     const char *right           /* ASCII-encoded string */
     );
-
-#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x030D0000
-/* Compare a Unicode object with UTF-8 encoded C string.
-   Return 1 if they are equal, or 0 otherwise.
-   This function does not raise exceptions. */
-
-PyAPI_FUNC(int) PyUnicode_EqualToUTF8(PyObject *, const char *);
-PyAPI_FUNC(int) PyUnicode_EqualToUTF8AndSize(PyObject *, const char *, Py_ssize_t);
-#endif
 
 /* Rich compare two strings and return one of the following:
 

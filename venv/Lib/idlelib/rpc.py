@@ -158,8 +158,8 @@ class SocketIO:
             s = s + " " + str(a)
         print(s, file=sys.__stderr__)
 
-    def register(self, oid, object_):
-        self.objtable[oid] = object_
+    def register(self, oid, object):
+        self.objtable[oid] = object
 
     def unregister(self, oid):
         try:

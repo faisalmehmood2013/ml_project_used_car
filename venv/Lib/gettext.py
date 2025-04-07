@@ -46,7 +46,6 @@ internationalized, to the local language and cultural habits.
 #   find this format documented anywhere.
 
 
-import operator
 import os
 import re
 import sys
@@ -167,28 +166,14 @@ def _parse(tokens, priority=-1):
 
 def _as_int(n):
     try:
-        round(n)
+        i = round(n)
     except TypeError:
         raise TypeError('Plural value must be an integer, got %s' %
                         (n.__class__.__name__,)) from None
-    return _as_int2(n)
-
-def _as_int2(n):
-    try:
-        return operator.index(n)
-    except TypeError:
-        pass
-
     import warnings
-    frame = sys._getframe(1)
-    stacklevel = 2
-    while frame.f_back is not None and frame.f_globals.get('__name__') == __name__:
-        stacklevel += 1
-        frame = frame.f_back
     warnings.warn('Plural value must be an integer, got %s' %
                   (n.__class__.__name__,),
-                  DeprecationWarning,
-                  stacklevel)
+                  DeprecationWarning, 4)
     return n
 
 
@@ -215,7 +200,7 @@ def c2py(plural):
             elif c == ')':
                 depth -= 1
 
-        ns = {'_as_int': _as_int, '__name__': __name__}
+        ns = {'_as_int': _as_int}
         exec('''if True:
             def func(n):
                 if not isinstance(n, int):
@@ -295,7 +280,6 @@ class NullTranslations:
     def ngettext(self, msgid1, msgid2, n):
         if self._fallback:
             return self._fallback.ngettext(msgid1, msgid2, n)
-        n = _as_int2(n)
         if n == 1:
             return msgid1
         else:
@@ -309,7 +293,6 @@ class NullTranslations:
     def npgettext(self, context, msgid1, msgid2, n):
         if self._fallback:
             return self._fallback.npgettext(context, msgid1, msgid2, n)
-        n = _as_int2(n)
         if n == 1:
             return msgid1
         else:
@@ -596,7 +579,6 @@ def dngettext(domain, msgid1, msgid2, n):
     try:
         t = translation(domain, _localedirs.get(domain, None))
     except OSError:
-        n = _as_int2(n)
         if n == 1:
             return msgid1
         else:
@@ -616,7 +598,6 @@ def dnpgettext(domain, context, msgid1, msgid2, n):
     try:
         t = translation(domain, _localedirs.get(domain, None))
     except OSError:
-        n = _as_int2(n)
         if n == 1:
             return msgid1
         else:

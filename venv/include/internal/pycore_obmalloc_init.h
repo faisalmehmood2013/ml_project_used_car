@@ -59,6 +59,13 @@ extern "C" {
         .dump_debug_stats = -1, \
     }
 
+#define _obmalloc_state_INIT(obmalloc) \
+    { \
+        .pools = { \
+            .used = _obmalloc_pools_INIT(obmalloc.pools), \
+        }, \
+    }
+
 
 #ifdef __cplusplus
 }

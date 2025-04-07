@@ -166,9 +166,8 @@ class EditorWindow:
             text.bind("<3>",self.right_menu_event)
 
         text.bind('<MouseWheel>', wheel_event)
-        if text._windowingsystem == 'x11':
-            text.bind('<Button-4>', wheel_event)
-            text.bind('<Button-5>', wheel_event)
+        text.bind('<Button-4>', wheel_event)
+        text.bind('<Button-5>', wheel_event)
         text.bind('<Configure>', self.handle_winconfig)
         text.bind("<<cut>>", self.cut)
         text.bind("<<copy>>", self.copy)
@@ -914,7 +913,7 @@ class EditorWindow:
     def ApplyKeybindings(self):
         """Apply the virtual, configurable keybindings.
 
-        Also update hotkeys to current keyset.
+        Alse update hotkeys to current keyset.
         """
         # Called from configdialog.activate_config_changes.
         self.mainmenu.default_keydefs = keydefs = idleConf.GetCurrentKeySet()
@@ -1044,9 +1043,7 @@ class EditorWindow:
     def saved_change_hook(self):
         short = self.short_title()
         long = self.long_title()
-        if short and long and not macosx.isCocoaTk():
-            # Don't use both values on macOS because
-            # that doesn't match platform conventions.
+        if short and long:
             title = short + " - " + long + _py_version
         elif short:
             title = short
@@ -1060,13 +1057,6 @@ class EditorWindow:
             icon = "*%s" % icon
         self.top.wm_title(title)
         self.top.wm_iconname(icon)
-
-        if macosx.isCocoaTk():
-            # Add a proxy icon to the window title
-            self.top.wm_attributes("-titlepath", long)
-
-            # Maintain the modification status for the window
-            self.top.wm_attributes("-modified", not self.get_saved())
 
     def get_saved(self):
         return self.undo.get_saved()
@@ -1757,7 +1747,6 @@ def _editor_window(parent):  # htest #
     # text.bind("<<close-all-windows>>", edit.close_event)
     # Does not stop error, neither does following
     # edit.text.bind("<<close-window>>", edit.close_event)
-
 
 if __name__ == '__main__':
     from unittest import main

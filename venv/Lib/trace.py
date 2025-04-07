@@ -202,8 +202,7 @@ class CoverageResults:
         for key in other_callers:
             callers[key] = 1
 
-    def write_results(self, show_missing=True, summary=False, coverdir=None, *,
-                      ignore_missing_files=False):
+    def write_results(self, show_missing=True, summary=False, coverdir=None):
         """
         Write the coverage results.
 
@@ -212,9 +211,6 @@ class CoverageResults:
         :param coverdir: If None, the results of each module are placed in its
                          directory, otherwise it is included in the directory
                          specified.
-        :param ignore_missing_files: If True, counts for files that no longer
-                         exist are silently ignored. Otherwise, a missing file
-                         will raise a FileNotFoundError.
         """
         if self.calledfuncs:
             print()
@@ -257,15 +253,13 @@ class CoverageResults:
             if filename.endswith(".pyc"):
                 filename = filename[:-1]
 
-            if ignore_missing_files and not os.path.isfile(filename):
-                continue
-
             if coverdir is None:
                 dir = os.path.dirname(os.path.abspath(filename))
                 modulename = _modname(filename)
             else:
                 dir = coverdir
-                os.makedirs(dir, exist_ok=True)
+                if not os.path.exists(dir):
+                    os.makedirs(dir)
                 modulename = _fullmodname(filename)
 
             # If desired, get a list of the line numbers which represent
@@ -283,6 +277,7 @@ class CoverageResults:
             if summary and n_lines:
                 percent = int(100 * n_hits / n_lines)
                 sums[modulename] = n_lines, percent, modulename, filename
+
 
         if summary and sums:
             print("lines   cov%   module   (path)")
@@ -565,12 +560,8 @@ class Trace:
             if self.start_time:
                 print('%.2f' % (_time() - self.start_time), end=' ')
             bname = os.path.basename(filename)
-            line = linecache.getline(filename, lineno)
-            print("%s(%d)" % (bname, lineno), end='')
-            if line:
-                print(": ", line, end='')
-            else:
-                print()
+            print("%s(%d): %s" % (bname, lineno,
+                                  linecache.getline(filename, lineno)), end='')
         return self.localtrace
 
     def localtrace_trace(self, frame, why, arg):
@@ -582,12 +573,8 @@ class Trace:
             if self.start_time:
                 print('%.2f' % (_time() - self.start_time), end=' ')
             bname = os.path.basename(filename)
-            line = linecache.getline(filename, lineno)
-            print("%s(%d)" % (bname, lineno), end='')
-            if line:
-                print(": ", line, end='')
-            else:
-                print()
+            print("%s(%d): %s" % (bname, lineno,
+                                  linecache.getline(filename, lineno)), end='')
         return self.localtrace
 
     def localtrace_count(self, frame, why, arg):

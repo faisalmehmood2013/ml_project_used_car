@@ -2,6 +2,8 @@
 #  error "this header file must not be included directly"
 #endif
 
+PyAPI_DATA(PyTypeObject) _PyManagedBuffer_Type;
+
 /* The structs are declared here so that macros can work, but they shouldn't
    be considered public. Don't access their fields directly, use the macros
    and functions instead! */

@@ -11,9 +11,15 @@ except ImportError:
           "Your Python may not be configured for Tk. **", file=sys.__stderr__)
     raise SystemExit(1)
 
+# Valid arguments for the ...Awareness call below are defined in the following.
+# https://msdn.microsoft.com/en-us/library/windows/desktop/dn280512(v=vs.85).aspx
 if sys.platform == 'win32':
-    from idlelib.util import fix_win_hidpi
-    fix_win_hidpi()
+    try:
+        import ctypes
+        PROCESS_SYSTEM_DPI_AWARE = 1  # Int required.
+        ctypes.OleDLL('shcore').SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE)
+    except (ImportError, AttributeError, OSError):
+        pass
 
 from tkinter import messagebox
 
@@ -127,8 +133,8 @@ class PyShellEditorWindow(EditorWindow):
     def __init__(self, *args):
         self.breakpoints = []
         EditorWindow.__init__(self, *args)
-        self.text.bind("<<set-breakpoint>>", self.set_breakpoint_event)
-        self.text.bind("<<clear-breakpoint>>", self.clear_breakpoint_event)
+        self.text.bind("<<set-breakpoint-here>>", self.set_breakpoint_here)
+        self.text.bind("<<clear-breakpoint-here>>", self.clear_breakpoint_here)
         self.text.bind("<<open-python-shell>>", self.flist.open_shell)
 
         #TODO: don't read/write this from/to .idlerc when testing
@@ -149,8 +155,8 @@ class PyShellEditorWindow(EditorWindow):
         ("Copy", "<<copy>>", "rmenu_check_copy"),
         ("Paste", "<<paste>>", "rmenu_check_paste"),
         (None, None, None),
-        ("Set Breakpoint", "<<set-breakpoint>>", None),
-        ("Clear Breakpoint", "<<clear-breakpoint>>", None)
+        ("Set Breakpoint", "<<set-breakpoint-here>>", None),
+        ("Clear Breakpoint", "<<clear-breakpoint-here>>", None)
     ]
 
     def color_breakpoint_text(self, color=True):
@@ -175,11 +181,11 @@ class PyShellEditorWindow(EditorWindow):
             self.breakpoints.append(lineno)
         try:    # update the subprocess debugger
             debug = self.flist.pyshell.interp.debugger
-            debug.set_breakpoint(filename, lineno)
+            debug.set_breakpoint_here(filename, lineno)
         except: # but debugger may not be active right now....
             pass
 
-    def set_breakpoint_event(self, event=None):
+    def set_breakpoint_here(self, event=None):
         text = self.text
         filename = self.io.filename
         if not filename:
@@ -188,7 +194,7 @@ class PyShellEditorWindow(EditorWindow):
         lineno = int(float(text.index("insert")))
         self.set_breakpoint(lineno)
 
-    def clear_breakpoint_event(self, event=None):
+    def clear_breakpoint_here(self, event=None):
         text = self.text
         filename = self.io.filename
         if not filename:
@@ -203,7 +209,7 @@ class PyShellEditorWindow(EditorWindow):
                         "insert lineend +1char")
         try:
             debug = self.flist.pyshell.interp.debugger
-            debug.clear_breakpoint(filename, lineno)
+            debug.clear_breakpoint_here(filename, lineno)
         except:
             pass
 
@@ -424,9 +430,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
     def spawn_subprocess(self):
         if self.subprocess_arglist is None:
             self.subprocess_arglist = self.build_subprocess_arglist()
-        # gh-127060: Disable traceback colors
-        env = dict(os.environ, TERM='dumb')
-        self.rpcsubproc = subprocess.Popen(self.subprocess_arglist, env=env)
+        self.rpcsubproc = subprocess.Popen(self.subprocess_arglist)
 
     def build_subprocess_arglist(self):
         assert (self.port!=0), (
@@ -708,7 +712,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
             del _filename, _sys, _dirname, _dir
             \n""".format(filename))
 
-    def showsyntaxerror(self, filename=None, **kwargs):
+    def showsyntaxerror(self, filename=None):
         """Override Interactive Interpreter method: Use Colorizing
 
         Color the offending position instead of printing it and pointing at it
@@ -743,11 +747,10 @@ class ModifiedInterpreter(InteractiveInterpreter):
             self.tkconsole.open_stack_viewer()
 
     def checklinecache(self):
-        "Remove keys other than '<pyshell#n>'."
-        cache = linecache.cache
-        for key in list(cache):  # Iterate list because mutate cache.
+        c = linecache.cache
+        for key in list(c.keys()):
             if key[:1] + key[-1:] != "<>":
-                del cache[key]
+                del c[key]
 
     def runcommand(self, code):
         "Run the code without invoking the debugger"
@@ -1689,7 +1692,6 @@ def main():
         root.mainloop()
     root.destroy()
     capture_warnings(False)
-
 
 if __name__ == "__main__":
     main()

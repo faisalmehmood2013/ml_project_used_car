@@ -468,12 +468,7 @@ class TCPServer(BaseServer):
         """
         if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
-        # on other address families than AF_INET/AF_INET6.
-        if (
-            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
-            and self.address_family in (socket.AF_INET, socket.AF_INET6)
-        ):
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self.socket.bind(self.server_address)
         self.server_address = self.socket.getsockname()

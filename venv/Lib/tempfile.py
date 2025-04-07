@@ -269,22 +269,6 @@ def _mkstemp_inner(dir, pre, suf, flags, output_type):
     raise FileExistsError(_errno.EEXIST,
                           "No usable temporary file name found")
 
-def _dont_follow_symlinks(func, path, *args):
-    # Pass follow_symlinks=False, unless not supported on this platform.
-    if func in _os.supports_follow_symlinks:
-        func(path, *args, follow_symlinks=False)
-    elif not _os.path.islink(path):
-        func(path, *args)
-
-def _resetperms(path):
-    try:
-        chflags = _os.chflags
-    except AttributeError:
-        pass
-    else:
-        _dont_follow_symlinks(chflags, path, 0)
-    _dont_follow_symlinks(_os.chmod, path, 0o700)
-
 
 # User visible interfaces.
 
@@ -888,37 +872,26 @@ class TemporaryDirectory:
             ignore_errors=self._ignore_cleanup_errors, delete=self._delete)
 
     @classmethod
-    def _rmtree(cls, name, ignore_errors=False, repeated=False):
+    def _rmtree(cls, name, ignore_errors=False):
         def onexc(func, path, exc):
             if isinstance(exc, PermissionError):
-                if repeated and path == name:
-                    if ignore_errors:
-                        return
-                    raise
+                def resetperms(path):
+                    try:
+                        _os.chflags(path, 0)
+                    except AttributeError:
+                        pass
+                    _os.chmod(path, 0o700)
 
                 try:
                     if path != name:
-                        _resetperms(_os.path.dirname(path))
-                    _resetperms(path)
+                        resetperms(_os.path.dirname(path))
+                    resetperms(path)
 
                     try:
                         _os.unlink(path)
-                    except IsADirectoryError:
+                    # PermissionError is raised on FreeBSD for directories
+                    except (IsADirectoryError, PermissionError):
                         cls._rmtree(path, ignore_errors=ignore_errors)
-                    except PermissionError:
-                        # The PermissionError handler was originally added for
-                        # FreeBSD in directories, but it seems that it is raised
-                        # on Windows too.
-                        # bpo-43153: Calling _rmtree again may
-                        # raise NotADirectoryError and mask the PermissionError.
-                        # So we must re-raise the current PermissionError if
-                        # path is not a directory.
-                        if not _os.path.isdir(path) or _os.path.isjunction(path):
-                            if ignore_errors:
-                                return
-                            raise
-                        cls._rmtree(path, ignore_errors=ignore_errors,
-                                    repeated=(path == name))
                 except FileNotFoundError:
                     pass
             elif isinstance(exc, FileNotFoundError):

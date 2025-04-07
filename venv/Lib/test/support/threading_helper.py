@@ -22,37 +22,34 @@ from test import support
 
 
 def threading_setup():
-    return _thread._count(), len(threading._dangling)
+    return _thread._count(), threading._dangling.copy()
 
 
 def threading_cleanup(*original_values):
-    orig_count, orig_ndangling = original_values
+    _MAX_COUNT = 100
 
-    timeout = 1.0
-    for _ in support.sleeping_retry(timeout, error=False):
-        # Copy the thread list to get a consistent output. threading._dangling
-        # is a WeakSet, its value changes when it's read.
-        dangling_threads = list(threading._dangling)
-        count = _thread._count()
+    for count in range(_MAX_COUNT):
+        values = _thread._count(), threading._dangling
+        if values == original_values:
+            break
 
-        if count <= orig_count:
-            return
+        if not count:
+            # Display a warning at the first iteration
+            support.environment_altered = True
+            dangling_threads = values[1]
+            support.print_warning(f"threading_cleanup() failed to cleanup "
+                                  f"{values[0] - original_values[0]} threads "
+                                  f"(count: {values[0]}, "
+                                  f"dangling: {len(dangling_threads)})")
+            for thread in dangling_threads:
+                support.print_warning(f"Dangling thread: {thread!r}")
 
-    # Timeout!
-    support.environment_altered = True
-    support.print_warning(
-        f"threading_cleanup() failed to clean up threads "
-        f"in {timeout:.1f} seconds\n"
-        f"  before: thread count={orig_count}, dangling={orig_ndangling}\n"
-        f"  after: thread count={count}, dangling={len(dangling_threads)}")
-    for thread in dangling_threads:
-        support.print_warning(f"Dangling thread: {thread!r}")
+            # Don't hold references to threads
+            dangling_threads = None
+        values = None
 
-    # The warning happens when a test spawns threads and some of these threads
-    # are still running after the test completes. To fix this warning, join
-    # threads explicitly to wait until they complete.
-    #
-    # To make the warning more likely, reduce the timeout.
+        time.sleep(0.01)
+        support.gc_collect()
 
 
 def reap_threads(func):
